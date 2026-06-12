@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sentiment Analyzer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+    }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { color: #64748b; font-size: 14px; margin-bottom: 28px; }
+    textarea {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      color: #e2e8f0;
+      font-size: 14px;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 14px;
+      resize: vertical;
+      min-height: 120px;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { border-color: #00d4ff; }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #00d4ff;
+      color: #0f172a;
+      font-weight: 700;
+      font-size: 15px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #results { margin-top: 24px; }
+    .top-result {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+    .positive { color: #10b981; }
+    .negative { color: #ef4444; }
+    .neutral  { color: #f59e0b; }
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #0f172a;
+    }
+    .result-label { font-size: 14px; min-width: 70px; }
+    .result-bar-wrap {
+      flex: 1;
+      margin: 0 12px;
+      background: #0f172a;
+      border-radius: 999px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .result-bar {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.6s ease;
+    }
+    .bar-positive { background: #10b981; }
+    .bar-negative { background: #ef4444; }
+    .bar-neutral  { background: #f59e0b; }
+    .result-pct { font-size: 13px; font-weight: 700; min-width: 48px; text-align: right; }
+    .char-count { text-align: right; font-size: 12px; color: #64748b; margin-top: -10px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>💬 Sentiment Analyzer</h1>
+    <p class="subtitle">Paste any text to analyze its emotional tone using AI</p>
+    <textarea
+      id="textInput"
+      placeholder="Type or paste text here... (e.g. a product review, tweet, or message)"
+      oninput="updateCount()"
+    ></textarea>
+    <div class="char-count"><span id="charCount">0</span> characters</div>
+    <button id="analyzeBtn" onclick="analyze()">Analyze Sentiment</button>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    function updateCount() {
+      const text = document.getElementById('textInput').value;
+      document.getElementById('charCount').textContent = text.length;
+    }
+
+    async function analyze() {
+      const text = document.getElementById('textInput').value.trim();
+      if (!text) return;
+
+      const btn = document.getElementById('analyzeBtn');
+      btn.disabled = true;
+      btn.textContent = 'Analyzing...';
+      document.getElementById('results').innerHTML = '';
+
+      try {
+        const res = await fetch('/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        if (data.error) {
+          document.getElementById('results').innerHTML = `<p style="color:#ef4444">${data.error}</p>`;
+        } else {
+          displayResults(data.results);
+        }
+      } catch (err) {
+        document.getElementById('results').innerHTML = '<p style="color:#ef4444">Something went wrong. Try again.</p>';
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Analyze Sentiment';
+    }
+
+    function displayResults(results) {
+      const top = results[0];
+      const colorClass = top.label.toLowerCase();
+      const emoji = top.label === 'Positive' ? '😊' : top.label === 'Negative' ? '😞' : '😐';
+
+      let html = `<div class="top-result ${colorClass}">${emoji} ${top.label}</div>`;
+      results.forEach(r => {
+        const barClass = 'bar-' + r.label.toLowerCase();
+        const textClass = r.label.toLowerCase();
+        html += `
+          <div class="result-item">
+            <span class="result-label ${textClass}">${r.label}</span>
+            <div class="result-bar-wrap">
+              <div class="result-bar ${barClass}" style="width:${r.confidence}%"></div>
+            </div>
+            <span class="result-pct ${textClass}">${r.confidence}%</span>
+          </div>`;
+      });
+      document.getElementById('results').innerHTML = html;
+    }
+  </script>
+</body>
+</html>
